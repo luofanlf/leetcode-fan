@@ -105,24 +105,73 @@ def generate_readme(categories):
     
     content += """---
 
----
-
 *持续更新中...*"""
     
     return content
 
+def parse_existing_readme():
+    """解析现有README文件中的题目"""
+    existing_problems = set()
+    
+    if not os.path.exists('README.md'):
+        return existing_problems
+    
+    try:
+        with open('README.md', 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 使用正则表达式匹配表格中的题目行
+        # 匹配形如 "| 27 | 移除元素 | [src/数组/27.移除元素.md](src/数组/27.移除元素.md) |"
+        pattern = r'\|\s*(\d+)\s*\|\s*([^|]+)\s*\|'
+        matches = re.findall(pattern, content)
+        
+        for match in matches:
+            problem_id = int(match[0])
+            problem_name = match[1].strip()
+            existing_problems.add((problem_id, problem_name))
+    
+    except Exception as e:
+        print(f"⚠️  解析现有README时出错: {e}")
+    
+    return existing_problems
+
+def find_new_problems(current_categories, existing_problems):
+    """找出新添加的题目"""
+    new_problems = []
+    
+    for category_name, problems in current_categories.items():
+        for problem in problems:
+            problem_tuple = (problem['id'], problem['name'])
+            if problem_tuple not in existing_problems:
+                new_problems.append(problem)
+    
+    return new_problems
+
 def update_readme():
     """更新README.md文件"""
     print("🔍 扫描题解文件...")
+    
+    # 解析现有README中的题目
+    existing_problems = parse_existing_readme()
+    
+    # 扫描当前题目
     categories = scan_problems()
     
     if not categories:
         print("❌ 没有找到任何题解文件")
-        return False
+        return False, []
+    
+    # 找出新增题目
+    new_problems = find_new_problems(categories, existing_problems)
     
     # 统计题目数量
     total_problems = sum(len(problems) for problems in categories.values())
     print(f"📊 找到 {len(categories)} 个分类，共 {total_problems} 道题目")
+    
+    if new_problems:
+        print(f"🆕 发现 {len(new_problems)} 道新题目:")
+        for problem in new_problems:
+            print(f"  - {problem['id']}.{problem['name']}")
     
     for category_name, problems in categories.items():
         print(f"  - {category_name}: {len(problems)} 道题")
@@ -135,9 +184,9 @@ def update_readme():
         f.write(content)
     
     print("✅ README.md 更新完成")
-    return True
+    return True, new_problems
 
-def commit_to_git():
+def commit_to_git(new_problems):
     """提交更改到Git"""
     try:
         print("📤 准备提交到Git...")
@@ -155,7 +204,16 @@ def commit_to_git():
         print("✅ 文件已添加到暂存区")
         
         # 生成提交信息
-        commit_message = "📚 更新README: 自动扫描并同步题解目录"
+        if new_problems:
+            # 如果有新题目，列出新题目的名字
+            problem_names = [f"{problem['id']}.{problem['name']}" for problem in new_problems]
+            if len(problem_names) == 1:
+                commit_message = f"add {problem_names[0]}"
+            else:
+                commit_message = f"add {', '.join(problem_names)}"
+        else:
+            # 如果没有新题目，使用通用信息
+            commit_message = "📚 更新README: 自动扫描并同步题解目录"
         
         # 提交更改
         subprocess.run(['git', 'commit', '-m', commit_message], check=True)
@@ -185,15 +243,20 @@ def main():
         sys.exit(1)
     
     # 更新README
-    if not update_readme():
+    success, new_problems = update_readme()
+    if not success:
         sys.exit(1)
     
-    # 提交到Git
-    if not commit_to_git():
-        print("⚠️  README已更新，但Git提交失败")
-        sys.exit(1)
-    
-    print("🎉 任务完成！README已更新并提交到GitHub")
+    # 只有当有新题目时才执行Git操作
+    if new_problems:
+        print(f"🔄 检测到 {len(new_problems)} 道新题目，准备提交到Git...")
+        if not commit_to_git(new_problems):
+            print("⚠️  README已更新，但Git提交失败")
+            sys.exit(1)
+        print("🎉 任务完成！README已更新并提交到GitHub")
+    else:
+        print("ℹ️  没有新题目，跳过Git操作")
+        print("✅ README检查完成，所有题目已是最新状态")
 
 if __name__ == "__main__":
     main() 
