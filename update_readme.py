@@ -56,7 +56,8 @@ def scan_problems():
             for file_path in category_dir.iterdir():
                 if file_path.is_file() and file_path.name.endswith('.md'):
                     problem_id, problem_name = extract_problem_info(file_path.name)
-                    if problem_id is not None:
+                    # 过滤掉以"0."开头的文件（题型总结）
+                    if problem_id is not None and problem_id != 0:
                         problems.append({
                             'id': problem_id,
                             'name': problem_name,
@@ -72,9 +73,37 @@ def scan_problems():
 
 def generate_readme(categories):
     """生成README.md内容"""
+    # 计算统计信息
+    total_problems = sum(len(problems) for problems in categories.values())
+    total_categories = len(categories)
+    
     content = """# LeetCode 刷题笔记
 
 这个项目用于记录我的LeetCode刷题思路和题解，按照算法和数据结构的类型进行分类整理。
+
+## 📊 刷题统计
+
+| 统计项 | 数量 |
+|--------|------|
+| 总题目数 | {} |
+| 已完成分类 | {} |
+| 平均每类题目数 | {:.1f} |
+
+## 题目分类概览
+
+""".format(total_problems, total_categories, total_problems / total_categories if total_categories > 0 else 0)
+
+    # 添加分类概览
+    content += "| 分类 | 题目数 | 完成度 |\n"
+    content += "|------|--------|--------|\n"
+    
+    for category_name, problems in sorted(categories.items()):
+        problem_count = len(problems)
+        completion_rate = "100%" if problem_count > 0 else "0%"
+        emoji = get_category_emoji(category_name)
+        content += f"| {emoji} {category_name} | {problem_count} | {completion_rate} |\n"
+    
+    content += """
 
 ## 项目结构
 
