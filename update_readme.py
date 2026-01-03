@@ -35,6 +35,7 @@ def get_category_emoji(category_name):
         '双指针': '👆',
         '滑动窗口': '🪟',
         '子串': '👦',
+        '矩阵': '🔲',
     }
     return emoji_map.get(category_name, '📁')
 
